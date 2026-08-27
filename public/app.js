@@ -10,6 +10,7 @@ const stepLabel = document.querySelector('#step-label');
 const faceState = document.querySelector('#face-state');
 const playButton = document.querySelector('#play');
 const speedInput = document.querySelector('#speed');
+const API_URL = 'https://oneapi-yevz.onrender.com';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
@@ -115,7 +116,7 @@ function selectCase(data) {
 }
 
 function getSelected() {
-    return fetch(`/pll/${encodeURIComponent(select.value)}`).then((response) => {
+    return fetch(`${API_URL}/pll/${encodeURIComponent(select.value)}`).then((response) => {
         if (!response.ok) throw new Error('PLL não encontrado');
         return response.json();
     });
@@ -193,7 +194,7 @@ playButton.addEventListener('click', () => {
 document.querySelector('#reset').addEventListener('click', () => { playing = false; resetCube(); });
 select.addEventListener('change', () => getSelected().then(selectCase).catch(console.error));
 
-fetch('/pll').then((response) => response.json()).then((data) => {
+fetch(`${API_URL}/pll`).then((response) => response.json()).then((data) => {
     data.plls.forEach((pll) => {
         const option = document.createElement('option');
         option.value = pll.name;
