@@ -1,10 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const pllAlgorithms = [
     { name: 'Aa', algorithm: "x L2 D2 L' U' L D2 L' U L'", aliases: ['a perm'] },
@@ -41,7 +46,7 @@ const findPll = (value) => pllAlgorithms.find((pll) => {
     return names.some((name) => normalizeName(name) === normalizeName(value));
 });
 
-app.get('/',(req, res) => {
+app.get('/status',(req, res) => {
     res.json({
         date: new Date().toLocaleString('pt-BR'),
         status: 'API no Render funcionando!'
