@@ -50,7 +50,7 @@ const materials = [
     new THREE.MeshStandardMaterial({ color: colors.front, roughness: .3 }),
     new THREE.MeshStandardMaterial({ color: colors.back, roughness: .3 })
 ];
-const insideMaterial = new THREE.MeshStandardMaterial({ color: colors.inside, roughness: .4 });
+const insideMaterial = new THREE.MeshStandardMaterial({ color: 0x586661, roughness: .4 });
 
 for (let x = -1; x <= 1; x += 1) {
     for (let y = -1; y <= 1; y += 1) {
@@ -74,6 +74,10 @@ const moveDefinitions = {
     M: { axis: 'x', layer: 0, direction: 1 }, E: { axis: 'y', layer: 0, direction: 1 }, S: { axis: 'z', layer: 0, direction: -1 }
 };
 const moveTokens = (algorithm) => algorithm.split(/\s+/).filter(Boolean);
+const inverseTokens = (tokens) => tokens.slice().reverse().map((token) => {
+    if (token.includes('2')) return token;
+    return token.endsWith("'") ? token.slice(0, -1) : `${token}'`;
+});
 let currentAlgorithm = [];
 let currentIndex = -1;
 let playing = false;
@@ -98,7 +102,18 @@ function resetCube() {
     currentIndex = -1;
     activeAnimation = null;
     stepLabel.textContent = 'PRONTO';
-    faceState.textContent = 'solved state';
+    faceState.textContent = 'case setup';
+    renderTokens();
+}
+
+async function setupCase() {
+    resetCube();
+    for (const token of inverseTokens(currentAlgorithm)) {
+        applyMoveInstant(token);
+    }
+    currentIndex = -1;
+    stepLabel.textContent = 'PRONTO';
+    faceState.textContent = 'case setup';
     renderTokens();
 }
 
@@ -107,7 +122,7 @@ function renderTokens() {
     moveCount.textContent = `${currentAlgorithm.length} movimentos`;
 }
 
-function selectCase(data) {
+async function selectCase(data) {
     currentAlgorithm = moveTokens(data.algorithm);
     caseBadge.textContent = data.name;
     caseName.textContent = `${data.name} perm`;
@@ -139,7 +154,7 @@ function animateMove(token) {
     const layer = new THREE.Group();
     cubeRoot.add(layer);
     selected.forEach((cubie) => layer.attach(cubie));
-    const duration = Number(speedInput.value);
+    const duration = 1180 - Number(speedInput.value);
     const start = performance.now();
     const angle = direction * Math.PI / 2 * turns;
     stepLabel.textContent = `MOVIMENTO ${currentIndex + 1} / ${currentAlgorithm.length}`;
@@ -164,9 +179,23 @@ function finishMove(animation) {
     animation.resolve();
 }
 
+function applyMoveInstant(token) {
+    const baseToken = token[0].toUpperCase();
+    const definition = moveDefinitions[baseToken];
+    if (!definition) return;
+    const turns = token.includes('2') ? 2 : 1;
+    const direction = definition.direction * (token.includes("'") ? -1 : 1);
+    const selected = cubies.filter((cubie) => cubie.userData.grid[definition.axis] === definition.layer);
+    const layer = new THREE.Group();
+    cubeRoot.add(layer);
+    selected.forEach((cubie) => layer.attach(cubie));
+    const animation = { layer, selected, angle: direction * Math.PI / 2 * turns, definition, direction, turns, resolve: () => {} };
+    finishMove(animation);
+}
+
 async function play() {
     if (playing) return;
-    if (currentIndex >= currentAlgorithm.length - 1) resetCube();
+    if (currentIndex >= currentAlgorithm.length - 1) await setupCase();
     playing = true;
     playButton.querySelector('span:last-child').textContent = 'Reproduzindo...';
     playButton.querySelector('.play-icon').textContent = 'Ⅱ';
@@ -191,8 +220,8 @@ playButton.addEventListener('click', () => {
         if (activeAnimation) finishMove(activeAnimation);
     } else play();
 });
-document.querySelector('#reset').addEventListener('click', () => { playing = false; resetCube(); });
-select.addEventListener('change', () => getSelected().then(selectCase).catch(console.error));
+document.querySelector('#reset').addEventListener('click', () => { playing = false; setupCase().catch(console.error); });
+select.addEventListener('change', () => getSelected().then(async (data) => { await selectCase(data); await setupCase(); }).catch(console.error));
 
 fetch(`${API_URL}/pll`).then((response) => response.json()).then((data) => {
     data.plls.forEach((pll) => {
@@ -202,7 +231,7 @@ fetch(`${API_URL}/pll`).then((response) => response.json()).then((data) => {
         select.appendChild(option);
     });
     select.value = 'T';
-    selectCase(data.plls.find((pll) => pll.name === 'T'));
+    selectCase(data.plls.find((pll) => pll.name === 'T')).then(setupCase).catch(console.error);
 }).catch(() => {
     caseName.textContent = 'API indisponível';
     stepLabel.textContent = 'ERRO DE CONEXÃO';
